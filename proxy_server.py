@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os, socket, json, logging
+import os, socket, json, logging, threading
 
 from multiprocessing import Process,Value
 
@@ -84,7 +84,7 @@ def handle_client(sock, addr, running):
 	request_line = headers[0].split(' ')
 
 	url_info = secuUrl(request_line[1])
-	logging.info('From: {}\nrequest: {}\n'.format(addr[0], headers[0]))
+	logging.info('From: {}\n\trequest: {}'.format(addr[0], headers[0]))
 	#api:POST /github/clone/<url>?<salt>&<md5>
 	#api:GET /github/clone/<url>?<salt>&<md5>
 	#api:GET /github/repo/<url>?<salt>&<md5>
@@ -102,7 +102,7 @@ def handle_client(sock, addr, running):
 			logging.error('url fail\n{}'.format(headers[1:]))
 			send_response(sock, 404, 'Not Found')
 	else:
-		logging.error('authen failed\n{}'.format(headers[1:]))
+		logging.error('authen failed\n\t{}'.format(headers[1:]))
 		send_response(sock, 404, 'Not Found')
 
 	sock.close()

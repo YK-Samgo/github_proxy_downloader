@@ -5,11 +5,10 @@ import json, logging
 from hashlib import md5
 
 class secuUrl:
-
+	key = None
 	def __init__(self, url, user = None, salt = None, way = None):
 		#receive whole url
 		if user == None:
-			self.key = ''
 			self.complete_url = url
 			self.split(url)
 		else:
@@ -19,7 +18,6 @@ class secuUrl:
 			self.repo_name = self.url_path[self.url_path.rfind('/') + 1:]
 			self.user = user
 			self.salt = salt
-			self.key = ''
 
 	def get_key(self):
 		try:
@@ -51,7 +49,7 @@ class secuUrl:
 		self.url_args = "user={}&dict={}".format(self.user, self.signum)
 
 	def form_url(self):
-		if self.key == '':
+		if self.key == None:
 			if self.get_key() == 1:
 				#wrong user
 				return 1
@@ -61,12 +59,10 @@ class secuUrl:
 		return self.complete_url
 
 	def authen(self):
-		if self.key == '':
+		if self.key == None:
 			if self.get_key() == 1:
 				return False
 			self.sign_url()
 		
-		if self.sig_rece == self.signum:
-			return True
-		else:
-			return False
+		return self.sig_rece == self.signum
+

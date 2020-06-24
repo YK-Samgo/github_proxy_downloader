@@ -6,7 +6,7 @@ import urllib
 import random
 import json, logging
 
-import sys,os
+import sys, os, threading
 
 from lib.security import secuUrl
 
