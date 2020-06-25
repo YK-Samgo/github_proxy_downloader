@@ -10,15 +10,15 @@ CACHED_COUNTS = lib.global_var.CACHED_COUNTS
 
 
 class slicer(object):
-	file_parts = {}
-	processed_piece = 0
-	processed_size = 0
-	file_done = False
 	"""docstring for slicer"""
 	def __init__(self, file_path, file_size = None, file_md5 = None):
 		logging.debug('starting with piece size ' + str(PIECE_SIZE))
+		self.file_parts = {}
+		self.processed_piece = 0
+		self.processed_size = 0
+		self.file_done = False
 		self.file_path = file_path
-		if os.path.isfile(self.file_path):
+		if os.path.isfile(self.file_path) and file_size == None:
 			self.file_valid = True
 			self.filename = self.file_path[self.file_path.rfind('/') + 1:]
 			cmd_result = os.popen('md5sum ' + self.file_path)
@@ -87,23 +87,28 @@ class slicer(object):
 					self.file_size += len(data)
 
 	def merge(self, piece):
-		data_buffer = ''
-		self.file_parts[piece.id] = piece
+		data_buffer = bytes()
+		if (piece.id >= self.processed_piece):
+			self.file_parts[piece.id] = piece
+		file_method = 'ab'
+		if self.processed_piece == 0 and os.path.isfile(self.file_path):
+			file_method = 'wb'
 		while self.processed_piece in self.file_parts:
 			if self.file_parts[self.processed_piece].check_integrity():
-				data += self.file_parts[self.processed_piece].data
+				data_buffer += self.file_parts[self.processed_piece].data
 			else:
 				self.file_parts.pop(self.processed_piece)
-				if len(data):
-					with open(self.file_path, 'ab') as fp:
-						fp.write(data)
+				if len(data_buffer):
+					with open(self.file_path, file_method) as fp:
+						fp.write(data_buffer)
 				raise Exception(['PIECE BROKE', self.processed_piece])
 			self.processed_size += self.file_parts[self.processed_piece].size
-			self.processed_piece += 1
 			self.file_parts.pop(self.processed_piece)
-		with open(self.file_path, 'a') as fp:
-			fp.write(data)
-		if self.processed_piece == self.file_counts:
+			self.processed_piece += 1
+		if len(data_buffer):
+			with open(self.file_path, file_method) as fp:
+				fp.write(data_buffer)
+		if self.processed_size == self.file_size:
 			self.file_done = True
 
 	def get_missed_parts(self):
@@ -116,18 +121,18 @@ class slicer(object):
 
 
 class data_piece(object):
-	integrity = None
 	"""docstring for data_piece"""
 	def __init__(self, file_path, id, data = None, piece_size = PIECE_SIZE, piece_MD5 = None):
 		self.file_path = file_path
 		self.id = id
 		if data != None:
 			self.data = data
-			self.data_MD5 = hashlib.md5(data).hexdigest()
+			self.data_MD5 = hashlib.md5(self.data).hexdigest()
 		else:
 			self.data = None
 		self.size = piece_size
 
+		self.integrity = None
 		if piece_MD5 != None:
 			self.target_MD5 = piece_MD5
 			self.integrity = (self.target_MD5 == self.data_MD5)
@@ -140,6 +145,7 @@ class data_piece(object):
 			self.integrity = False
 		else:
 			self.integrity = True
+		return self.integrity
 
 	def get_piece(self):
 		if self.data != None:
