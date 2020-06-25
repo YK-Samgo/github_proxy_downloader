@@ -113,9 +113,12 @@ class slicer(object):
 
 	def get_missed_parts(self):
 		self.missed_parts = []
-		for i in range(self.processed_piece, self.processed_piece + CACHED_COUNTS):
-			if not i in file_parts:
-				self.missed_parts.append[i]
+		keys = list(self.file_parts.keys())
+		if (len(keys) > 0):
+			keys.sort()
+			for i in range(self.processed_piece, keys[-1]):
+				if not i in self.file_parts:
+					self.missed_parts.append(i)
 		return self.missed_parts
 
 

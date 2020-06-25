@@ -9,6 +9,7 @@ import json, logging
 import sys, os, threading
 
 from lib.security import secuUrl
+import lib.dispatcher
 
 user = 'yk'
 #host = 'github.smyk323.gq'
