@@ -2,11 +2,11 @@
 
 import logging, hashlib, os, json
 
-import global_var
+import lib.global_var
 
-PIECE_SIZE = global_var.DEFAULT_PIECE_SIZE
-MAX_CONNECTION = global_var.DEFAULT_MAX_CONNECTION
-CACHED_COUNTS = global_var.CACHED_COUNTS
+PIECE_SIZE = lib.global_var.DEFAULT_PIECE_SIZE
+MAX_CONNECTION = lib.global_var.DEFAULT_MAX_CONNECTION
+CACHED_COUNTS = lib.global_var.CACHED_COUNTS
 
 
 class slicer(object):
@@ -21,8 +21,8 @@ class slicer(object):
 		if os.path.isfile(self.file_path):
 			self.file_valid = True
 			self.filename = self.file_path[self.file_path.rfind('/') + 1:]
-			with open(self.file_path, 'r') as fp:
-				self.md5sum = hashlib.md5(fp.read()).hexdigest()
+			cmd_result = os.popen('md5sum ' + self.file_path)
+			self.md5sum = cmd_result.readline().split()[0]
 			self.file_size = os.path.getsize(file_path)
 			self.file_counts = int(self.file_size / PIECE_SIZE)
 			self.split()
@@ -52,21 +52,29 @@ class slicer(object):
 			self.integrity = False
 		return self.integrity
 
-	def get_piece(self, id):
-		if id in self.file_parts:
-			tmp = self.file_parts[id]
-			self.file_parts.pop[id]
-			return tmp
-		else:
-			if os.path.isfile(self.file_path):
-				with open(self.file_path, 'r') as fp:
-					return fp.seek(id * PIECE_SIZE, 0)
+	def get_piece(self, id = None):
+		self.split()
+		if id != None:
+			if id in self.file_parts:
+				return self.file_parts.pop(id)
 			else:
+				if os.path.isfile(self.file_path):
+					tmp = data_piece(self.file_path, id)
+					tmp.get_piece()
+					return tmp
+				else:
+					return 1
+		else:
+			try:
+				keys = list(self.file_parts.keys())
+				keys.sort()
+				return self.get_piece(keys[0])
+			except IndexError:
 				return 1
 
 	def split(self):
-		if (len(self.file_parts) < CACHED_COUNTS and not self.file_done):
-			with open(self.file_path, 'r') as fp:
+		if (len(self.file_parts) < MAX_CONNECTION and not self.file_done):
+			with open(self.file_path, 'rb') as fp:
 				fp.seek(self.processed_piece * PIECE_SIZE, 0)
 				while (len(self.file_parts) < CACHED_COUNTS and self.processed_size < self.file_size):
 					if self.processed_piece < self.file_counts - 1:
@@ -74,7 +82,7 @@ class slicer(object):
 					else:
 						data = fp.read()
 						self.file_done = True
-					self.file_parts[self.processed_piece] = data_piece(self.filename, self.processed_piece, data, len(data))
+					self.file_parts[self.processed_piece] = data_piece(self.file_path, self.processed_piece, data, len(data))
 					self.processed_piece += 1
 					self.file_size += len(data)
 
@@ -87,7 +95,7 @@ class slicer(object):
 			else:
 				self.file_parts.pop(self.processed_piece)
 				if len(data):
-					with open(self.file_path, 'a') as fp:
+					with open(self.file_path, 'ab') as fp:
 						fp.write(data)
 				raise Exception(['PIECE BROKE', self.processed_piece])
 			self.processed_size += self.file_parts[self.processed_piece].size
@@ -110,12 +118,12 @@ class slicer(object):
 class data_piece(object):
 	integrity = None
 	"""docstring for data_piece"""
-	def __init__(self, filename, id, data = None, piece_size = PIECE_SIZE, piece_MD5 = None):
-		self.filename = filename
+	def __init__(self, file_path, id, data = None, piece_size = PIECE_SIZE, piece_MD5 = None):
+		self.file_path = file_path
 		self.id = id
 		if data != None:
 			self.data = data
-			self.data_MD5 = hashlib.md5(data.encode()).hexdigest()
+			self.data_MD5 = hashlib.md5(data).hexdigest()
 		else:
 			self.data = None
 		self.size = piece_size
@@ -125,10 +133,22 @@ class data_piece(object):
 			self.integrity = (self.target_MD5 == self.data_MD5)
 
 	def check_integrity(self):
-		if self.intergrity != True and self.data != None and self.target_MD5 != None:
+		if self.integrity != True and self.data != None and self.target_MD5 != None:
 			self.md5sum = hashlib.md5(self.data).hexdigest()
 			self.integrity = (self.target_MD5 == self.data_MD5)
-		elif data == None:
+		elif self.data == None:
 			self.integrity = False
 		else:
 			self.integrity = True
+
+	def get_piece(self):
+		if self.data != None:
+			return self.data
+		else:
+			if os.path.isfile(self.file_path):
+				with open(self.file_path, 'rb') as fp:
+					fp.seek(PIECE_SIZE * self.id, 0)
+					self.data = fp.read(self.size)
+					return self.data
+			else:
+				return 1
