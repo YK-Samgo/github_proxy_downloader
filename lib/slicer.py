@@ -59,9 +59,14 @@ class slicer(object):
 				return self.file_parts.pop(id)
 			else:
 				if os.path.isfile(self.file_path):
-					tmp = data_piece(self.file_path, id)
-					tmp.get_piece()
-					return tmp
+					if (PIECE_SIZE * (2 + id) > self.file_size):
+						tmp = data_piece(self.file_path, id, self.file_size - PIECE_SIZE * id)
+						tmp.get_piece()
+						return tmp
+					else:
+						tmp = data_piece(self.file_path, id)
+						tmp.get_piece()
+						return tmp
 				else:
 					return 1
 		else:
@@ -82,7 +87,7 @@ class slicer(object):
 					else:
 						data = fp.read()
 						self.file_done = True
-					self.file_parts[self.processed_piece] = data_piece(self.file_path, self.processed_piece, data, len(data))
+					self.file_parts[self.processed_piece] = data_piece(self.file_path, self.processed_piece, len(data), data)
 					self.processed_piece += 1
 					self.file_size += len(data)
 
@@ -125,7 +130,7 @@ class slicer(object):
 
 class data_piece(object):
 	"""docstring for data_piece"""
-	def __init__(self, file_path, id, data = None, piece_size = PIECE_SIZE, piece_MD5 = None):
+	def __init__(self, file_path, id, piece_size = PIECE_SIZE, data = None, piece_MD5 = None):
 		self.file_path = file_path
 		self.id = id
 		if data != None:
@@ -158,6 +163,7 @@ class data_piece(object):
 				with open(self.file_path, 'rb') as fp:
 					fp.seek(PIECE_SIZE * self.id, 0)
 					self.data = fp.read(self.size)
+					self.data_MD5 = hashlib.md5(self.data).hexdigest()
 					return self.data
 			else:
 				return 1
