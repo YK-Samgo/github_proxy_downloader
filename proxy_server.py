@@ -11,18 +11,30 @@ import lib.dispatcher
 status : cloning, cloned, done, error, failed
 '''
 
+abspath = os.path.abspath('.')
 #repo_path = '/root/github_proxy/repo/'
-repo_path ='repo/'
+repo_path = os.path.join(abspath, 'repo/')
+log_path = os.path.join(abspath, 'logs/')
+json_path = os.path.join(log_path, 'gits_server.json')
+
+if not os.path.exists(repo_path):
+	os.makedirs(repo_path)
+if not os.path.exists(log_path):
+	os.makedirs(log_path)
+if not os.path.isfile(json_path):
+	logJson = {}
+	logJson['description'] = 'This file stores jobs on server. If you don\'t know what everything means, DON\'T CHANGE ANYTHING!!!'
+	with open(json_path, 'w') as fp:
+		json.dump(logJson, fp)
 
 stable_state = ['cloned', 'done']
 
 def read_status(repo_name):
 	status = None
-	if os.path.isfile('logs/gits_server.json'):
-		with open('logs/gits_server.json', 'r') as logFile:
-			logJson = json.load(logFile)
-			if repo_name in logJson:
-				status = logJson[repo_name]['status']
+	with open(json_path, 'r') as logFile:
+		logJson = json.load(logFile)
+		if repo_name in logJson:
+			status = logJson[repo_name]['status']
 
 	dir_exist = os.path.exists(os.path.join(repo_path, repo_name))
 	tar_exist = os.path.isfile(os.path.join(repo_path, repo_name + '.tar.gz'))
@@ -42,17 +54,17 @@ def read_status(repo_name):
 
 def write_status(repo_name, status):
 	logJson = {}
-	if not os.path.isfile('logs/gits_server.json'):
-		with open('logs/gits_server.json', 'w') as logFile:
+	if not os.path.isfile(json_path):
+		with open(json_path, 'w') as logFile:
 			json.dump(logJson, logFile)
-	with open('logs/gits_server.json', 'r') as logFile:
+	with open(json_path, 'r') as logFile:
 		logJson = json.load(logFile)
 	if repo_name in logJson:
 		logJson[repo_name]['status'] = status
 	else:
 		logJson[repo_name] = {}
 		logJson[repo_name]['status'] = status
-	with open('logs/gits_server.json', 'w') as logFile:
+	with open(json_path, 'w') as logFile:
 		json.dump(logJson, logFile)
 
 def send_response(sock, return_code, return_message, additional_info = None, body = None):
@@ -165,7 +177,7 @@ def main():
 	running = Value('i', 1)
 
 	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-	logging.basicConfig(filename='logs/github_proxy_server.log', level=logging.DEBUG, format=LOG_FORMAT)
+	logging.basicConfig(filename=os.path.join(log_path, 'github_proxy_server.log'), level=logging.DEBUG, format=LOG_FORMAT)
 
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

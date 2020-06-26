@@ -20,16 +20,32 @@ github_url = sys.argv[1]
 auto_start = None
 act = 'n'
 
+abspath = os.path.abspath('.')
+#repo_path = '/root/github_proxy/repo/'
+repo_path = os.path.join(abspath, 'repo/')
+log_path = os.path.join(abspath, 'logs/')
+json_path = os.path.join(log_path, 'gits_client.json')
+
+if not os.path.exists(repo_path):
+	os.makedirs(repo_path)
+if not os.path.exists(log_path):
+	os.makedirs(log_path)
+if not os.path.isfile(json_path):
+	logJson = {}
+	logJson['description'] = 'This file stores jobs on client. If you don\'t know what everything means, DON\'T CHANGE ANYTHING!!!'
+	with open(json_path, 'w') as fp:
+		json.dump(logJson, fp)
+
 def write_status(repo_name, status):
 	logJson = {}
-	with open('logs/gits_client.json', 'r') as logFile:
+	with open(json_path, 'r') as logFile:
 		logJson = json.load(logFile)
 	if repo_name in logJson:
 		logJson[repo_name]['status'] = status
 	else:
 		logJson[repo_name] = {}
 		logJson[repo_name]['status'] = status
-	with open('logs/gits_client.json', 'w') as logFile:
+	with open(json_path, 'w') as logFile:
 		json.dump(logJson, logFile)
 
 def postJob():
@@ -137,81 +153,74 @@ def judge_act():
 	url_path = github_url[github_url.find('github.com') + 10:].strip('\n')
 	repo_name = github_url[github_url.rfind('/') + 1:]
 
-
 	#gitMd5 = hashlib.md5(url_path).hexdigest()
-	if os.path.isfile('logs/gits_client.json'):
-		gits = {}
-		with open('logs/gits_client.json', 'r') as gitsJson:
-			gits = json.load(gitsJson)
-		if repo_name in gits:
-			if gits[repo_name]['status'] == 'done':
-				print('already get back ' + github_url)
-				act = input('job already finished, redo? Warning: redo may overwritten the local file (Y/n):')
+	gits = {}
+	with open(json_path, 'r') as gitsJson:
+		gits = json.load(gitsJson)
+	if repo_name in gits:
+		if gits[repo_name]['status'] == 'done':
+			print('already get back ' + github_url)
+			act = input('job already finished, redo? Warning: redo may overwritten the local file (Y/n):')
+			if (act == 'y' or act == 'Y'):
+				logging.info('redo job ' + github_url)
+				write_status(repo_name, 'redoing')
+				judge_act()
+
+		elif gits[repo_name]['status'] == 'lost':
+			logging.info('may lost on the server, regain status')
+			result = jobStatus()
+			if result == 'lost':
+				act = input('lost on the server, clone the repo again? (Y/n):')
 				if (act == 'y' or act == 'Y'):
-					logging.info('redo job ' + github_url)
-					write_status(repo_name, 'redoing')
-					judge_act()
-
-			elif gits[repo_name]['status'] == 'lost':
-				logging.info('may lost on the server, regain status')
-				result = jobStatus()
-				if result == 'lost':
-					act = input('lost on the server, clone the repo again? (Y/n):')
-					if (act == 'y' or act == 'Y'):
-						logging.info('restart job ' + github_url)
-						result = postJob()
-						write_status(repo_name, result)
-				else:
+					logging.info('restart job ' + github_url)
+					result = postJob()
 					write_status(repo_name, result)
-					judge_act()
-
-			elif gits[repo_name]['status'] == 'failed':
-				act = input('failed last copy, continue? (Y/n):')
-				if (act == 'y' or act == 'Y'):
-					logging.info('continue job ' + github_url)
-					result = getGit()
-					write_status(repo_name, result)
-
-			elif gits[repo_name]['status'] == 'cloning':
-				logging.info('update status ' + github_url)
-				result = jobStatus()
-				logging.info('status updated: ' + result)
+			else:
 				write_status(repo_name, result)
-				if result == 'cloned':
-					act = input('Cloned on server, get back? (Y/n):')
-					if (act == 'y' or act == 'Y'):
-						judge_act()
+				judge_act()
 
-			elif gits[repo_name]['status'] == 'cloned':
-				if act != 'y' and act != 'Y':
-					act = input('cloned on server, get repo back? (Y/n):')
-				if act == 'y' or act == 'Y':
-					logging.info('get back ' + github_url)
-					result = getGit()
-					write_status(repo_name, result)
-
-			elif gits[repo_name]['status'] == 'redoing':
-				result = jobStatus()
-				logging.info('status updated: ' + result)
+		elif gits[repo_name]['status'] == 'failed':
+			act = input('failed last copy, continue? (Y/n):')
+			if (act == 'y' or act == 'Y'):
+				logging.info('continue job ' + github_url)
+				result = getGit()
 				write_status(repo_name, result)
-				if result == 'cloned':
-					judge_act()
-		else:
-			logging.info('new job ' + github_url)
-			result = postJob()
+
+		elif gits[repo_name]['status'] == 'cloning':
+			logging.info('update status ' + github_url)
+			result = jobStatus()
+			logging.info('status updated: ' + result)
 			write_status(repo_name, result)
+			if result == 'cloned':
+				act = input('Cloned on server, get back? (Y/n):')
+				if (act == 'y' or act == 'Y'):
+					judge_act()
+
+		elif gits[repo_name]['status'] == 'cloned':
+			if act != 'y' and act != 'Y':
+				act = input('cloned on server, get repo back? (Y/n):')
+			if act == 'y' or act == 'Y':
+				logging.info('get back ' + github_url)
+				result = getGit()
+				write_status(repo_name, result)
+
+		elif gits[repo_name]['status'] == 'redoing':
+			result = jobStatus()
+			logging.info('status updated: ' + result)
+			write_status(repo_name, result)
+			if result == 'cloned':
+				judge_act()
+
 	else:
-		logging.info('first job ' + github_url)
-		with open('logs/gits_client.json', 'w') as gitsJsonFile:
-			gits = {}
-			gits['description'] = 'client log for jobs'
-			json.dump(gits, gitsJsonFile)
-		postJob()
+		logging.info('new job ' + github_url)
+		result = postJob()
+		write_status(repo_name, result)
+
 
 def main():
 	global act
 	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-	logging.basicConfig(filename='logs/github_proxy_client.log', level=logging.DEBUG, format=LOG_FORMAT)
+	logging.basicConfig(filename=os.path.join(log_path, 'github_proxy_client.log'), level=logging.DEBUG, format=LOG_FORMAT)
 	judge_act()
 
 main()
