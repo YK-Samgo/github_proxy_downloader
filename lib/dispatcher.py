@@ -119,7 +119,7 @@ class dispatcher(object):
 			except http.client.BadStatusLine:
 				pass
 		time1 = time.time()
-		print('processed: {}KB/{}KB ({}/{}) {} KB/s'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(time1 -time0))), end='', flush=True)
+		print('\nprocessed: {}KB/{}KB ({}/{}) {} KB/s\n'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(time1 -time0))), flush=True)
 		salt = str(random.randint(32768, 65536))
 		url_info = lib.security.secuUrl('/confirm/{}'.format(self.slicer.piece_counts), user, salt, 'repo')
 		url_info.form_url()

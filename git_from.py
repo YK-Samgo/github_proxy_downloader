@@ -17,6 +17,9 @@ host = 'localhost'
 host_port = 10652
 github_url = sys.argv[1]
 
+auto_start = None
+act = 'n'
+
 def write_status(repo_name, status):
 	logJson = {}
 	with open('logs/gits_client.json', 'r') as logFile:
@@ -130,6 +133,7 @@ def getGit():
 	return result
 
 def judge_act():
+	global act
 	url_path = github_url[github_url.find('github.com') + 10:].strip('\n')
 	repo_name = github_url[github_url.rfind('/') + 1:]
 
@@ -179,9 +183,12 @@ def judge_act():
 						judge_act()
 
 			elif gits[repo_name]['status'] == 'cloned':
-				logging.info('get back ' + github_url)
-				result = getGit()
-				write_status(repo_name, result)
+				if act != 'y' and act != 'Y':
+					act = input('cloned on server, get repo back? (Y/n):')
+				if act == 'y' or act == 'Y':
+					logging.info('get back ' + github_url)
+					result = getGit()
+					write_status(repo_name, result)
 
 			elif gits[repo_name]['status'] == 'redoing':
 				result = jobStatus()
@@ -202,6 +209,7 @@ def judge_act():
 		postJob()
 
 def main():
+	global act
 	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 	logging.basicConfig(filename='logs/github_proxy_client.log', level=logging.DEBUG, format=LOG_FORMAT)
 	judge_act()
