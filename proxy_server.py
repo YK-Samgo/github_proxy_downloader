@@ -87,7 +87,7 @@ def handle_client(sock, addr, running):
 	logging.info('From: {}\n\trequest: {}'.format(addr[0], headers[0]))
 	#api:POST /github/clone/<url>?<salt>&<md5>
 	#api:GET /github/clone/<url>?<salt>&<md5>
-	#api:GET /github/repo/<url>?<salt>&<md5>
+	#api:GET /github/repo/<url>?<salt>&<md5>&<piece-id>
 	#api:DELETE /github/repo/<url>?<salt>&<md5>
 	if url_info.authen():
 		path_part = url_info.url_path.split('/')[1:]

@@ -10,6 +10,8 @@ CACHED_COUNTS = lib.global_var.CACHED_COUNTS
 
 
 class slicer(object):
+	cached = False
+	data_recv = []
 	"""docstring for slicer"""
 	def __init__(self, file_path, file_size = None, file_md5 = None):
 		logging.debug('starting with piece size ' + str(PIECE_SIZE))
@@ -29,6 +31,7 @@ class slicer(object):
 		else:
 			self.file_valid = False
 			self.file_size = file_size
+			self.file_counts = int(self.file_size / PIECE_SIZE)
 
 		self.target_MD5 = None
 		if file_md5 != None:
@@ -55,18 +58,19 @@ class slicer(object):
 	def get_piece(self, id = None):
 		self.split()
 		if id != None:
-			if id in self.file_parts:
+			if id in self.file_parts and self.cached:
 				return self.file_parts.pop(id)
 			else:
 				if os.path.isfile(self.file_path):
+					tmp = None
 					if (PIECE_SIZE * (2 + id) > self.file_size):
 						tmp = data_piece(self.file_path, id, self.file_size - PIECE_SIZE * id)
-						tmp.get_piece()
-						return tmp
 					else:
 						tmp = data_piece(self.file_path, id)
-						tmp.get_piece()
-						return tmp
+					if not self.cached and id in self.file_parts:
+						self.file_parts.pop(id)
+					tmp.get_piece()
+					return tmp
 				else:
 					return 1
 		else:
@@ -81,15 +85,22 @@ class slicer(object):
 		if (len(self.file_parts) < MAX_CONNECTION and not self.file_done):
 			with open(self.file_path, 'rb') as fp:
 				fp.seek(self.processed_piece * PIECE_SIZE, 0)
+				read_size = PIECE_SIZE
 				while (len(self.file_parts) < CACHED_COUNTS and self.processed_size < self.file_size):
+
 					if self.processed_piece < self.file_counts - 1:
-						data = fp.read(PIECE_SIZE)
+						read_size = PIECE_SIZE
 					else:
-						data = fp.read()
+						read_size = self.file_size - self.processed_size
 						self.file_done = True
-					self.file_parts[self.processed_piece] = data_piece(self.file_path, self.processed_piece, len(data), data)
+
+					if self.cached:
+						data= fp.read(read_size)
+						self.file_parts[self.processed_piece] = data_piece(self.file_path, self.processed_piece, read_size, data)
+					else:
+						self.file_parts[self.processed_piece] = None
+					self.processed_size += read_size
 					self.processed_piece += 1
-					self.file_size += len(data)
 
 	def merge(self, piece):
 		data_buffer = bytes()
@@ -108,6 +119,7 @@ class slicer(object):
 						fp.write(data_buffer)
 				raise Exception(['PIECE BROKE', self.processed_piece])
 			self.processed_size += self.file_parts[self.processed_piece].size
+			self.data_recv.append(self.file_parts[self.processed_piece].id)
 			self.file_parts.pop(self.processed_piece)
 			self.processed_piece += 1
 		if len(data_buffer):
@@ -124,6 +136,8 @@ class slicer(object):
 			for i in range(self.processed_piece, keys[-1]):
 				if not i in self.file_parts:
 					self.missed_parts.append(i)
+		if (keys[-1] < self.file_counts - 1):
+			self.missed_parts.append(keys[-1] + 1)
 		return self.missed_parts
 
 
@@ -147,7 +161,7 @@ class data_piece(object):
 
 	def check_integrity(self):
 		if self.integrity != True and self.data != None and self.target_MD5 != None:
-			self.md5sum = hashlib.md5(self.data).hexdigest()
+			self.data_MD5 = hashlib.md5(self.data).hexdigest()
 			self.integrity = (self.target_MD5 == self.data_MD5)
 		elif self.data == None:
 			self.integrity = False

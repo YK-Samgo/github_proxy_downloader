@@ -2,7 +2,7 @@
 
 import logging, threading, queue, http.client, socket
 
-import lib.slicer, lib.global_var
+import lib.slicer, lib.global_var, lib.secuUrl
 
 PIECE_SIZE = lib.global_var.DEFAULT_PIECE_SIZE
 MAX_CONNECTION = lib.global_var.DEFAULT_MAX_CONNECTION
