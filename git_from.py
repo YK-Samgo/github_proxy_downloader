@@ -12,11 +12,12 @@ from lib.security import secuUrl
 import lib.dispatcher
 
 user = 'yk'
-#host = 'github.smyk323.gq'
+host = 'github.smyk323.gq'
 #host = 'localhost'
-host = 'www.cmjk123.tk'
+#host = 'www.cmjk123.tk'
 #host = 'www.acceforyk.cn'
-host_port = 12497
+#host_port = 12497
+host_port = http.client.HTTPS_PORT
 github_url = sys.argv[1]
 
 auto_start = None
@@ -61,7 +62,7 @@ def postJob():
 	httpClient = None
 	result = None
 	try:
-		httpClient = http.client.HTTPConnection(host, host_port)
+		httpClient = http.client.HTTPSConnection(host, host_port)
 		httpClient.request('POST', myurl)
 		
 		# response是HTTPResponse对象
@@ -90,7 +91,7 @@ def jobStatus():
 	httpClient = None
 	result = None
 	try:
-		httpClient = http.client.HTTPConnection(host, host_port)
+		httpClient = http.client.HTTPSConnection(host, host_port)
 		httpClient.request('GET', myurl)
 		
 		# response是HTTPResponse对象
@@ -122,7 +123,7 @@ def getGit():
 	httpClient = None
 	result = None
 	try:
-		httpClient = http.client.HTTPConnection(host, host_port)
+		httpClient = http.client.HTTPSConnection(host, host_port)
 		httpClient.request('GET', myurl)
 		
 		# response是HTTPResponse对象

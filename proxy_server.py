@@ -154,27 +154,32 @@ def handle_client(sock, addr, running):
 	headers = headers.split('\r\n')
 	request_line = headers[0].split(' ')
 
-	url_info = secuUrl(request_line[1])
 	logging.info('From: {}\n\trequest: {}'.format(addr[0], headers[0]))
-	#api:POST /github/clone/<url>?<salt>&<md5>
-	#api:GET /github/clone/<url>?<salt>&<md5>
-	#api:GET /github/repo/<url>?<salt>&<md5>&<piece-id>
-	#api:DELETE /github/repo/<url>?<salt>&<md5>
-	if url_info.authen():
-		path_part = url_info.url_path.split('/')[1:]
-		if (path_part[0] != 'github'):
-			logging.error('wrong url\n{}'.format(headers[1:]))
-			send_response(sock, 404, 'Not Found')
-		elif (path_part[1] == 'clone'):
-			clone_job(sock, request_line[0], url_info)
-		elif (path_part[1] == 'repo'):
-			repo_job(sock, request_line[0], url_info)
+	url_info = None
+	try:
+		url_info = secuUrl(request_line[1])
+		#api:POST /github/clone/<url>?<salt>&<md5>
+		#api:GET /github/clone/<url>?<salt>&<md5>
+		#api:GET /github/repo/<url>?<salt>&<md5>&<piece-id>
+		#api:DELETE /github/repo/<url>?<salt>&<md5>
+		if url_info != None and url_info.authen():
+			path_part = url_info.url_path.split('/')[1:]
+			if (path_part[0] != 'github'):
+				logging.error('wrong url\n{}'.format(headers[1:]))
+				send_response(sock, 404, 'Not Found')
+			elif (path_part[1] == 'clone'):
+				clone_job(sock, request_line[0], url_info)
+			elif (path_part[1] == 'repo'):
+				repo_job(sock, request_line[0], url_info)
+			else:
+				logging.error('url fail\n{}'.format(headers[1:]))
+				send_response(sock, 404, 'Not Found')
 		else:
-			logging.error('url fail\n{}'.format(headers[1:]))
+			logging.error('authen failed\n\t{}'.format(headers[1:]))
 			send_response(sock, 404, 'Not Found')
-	else:
-		logging.error('authen failed\n\t{}'.format(headers[1:]))
-		send_response(sock, 404, 'Not Found')
+	except Exception:
+		logging.error('invalid url')
+		send_response(sock, 200, 'ok')
 
 	sock.close()
 

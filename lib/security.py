@@ -41,7 +41,6 @@ class secuUrl:
 		self.salt = self.url_path[self.url_path.rfind('/') + 1: ]
 		self.url_path = self.url_path[ :self.url_path.rfind('/')]
 		self.url_args = url[url.find('?') + 1:]
-
 		self.url_args_dict = json.loads('{"' + self.url_args.replace('&', '","').replace('=', '":"') + '"}')
 		self.user = self.url_args_dict['user']
 		self.sig_rece = self.url_args_dict['dict']

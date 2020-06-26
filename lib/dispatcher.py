@@ -54,6 +54,7 @@ class dispatcher(object):
 							elif msg.status == 'get':
 								self.send_piece(self.slicer.get_piece(msg.piece_id))
 								self.data_queue.append(msg.piece_id)
+								logging.debug('sent piece: ' + str(msg.piece_id))
 			except socket.timeout:
 				#resend all
 				logging.error('retry {}'.format(self.retry))
@@ -97,14 +98,16 @@ class dispatcher(object):
 					self.execute_queue(id)
 
 				logging.debug('waiting for pieces {}'.format(self.slicer.missed_parts))
-				response = self.tunnel.getresponse()
-				piece_id = int(response.getheader('Content-id'))
-				piece_size = int(response.getheader('Content-Length'))
-				piece_MD5 = response.getheader('Content-MD5')
-				piece_data = response.read()
-				#print(len(piece_data))
-				piece = lib.slicer.data_piece(self.slicer.file_path, piece_id, piece_size, piece_data, piece_MD5)
+				response = None
 				try:
+					response = self.tunnel.getresponse()
+					piece_id = int(response.getheader('Content-id'))
+					piece_size = int(response.getheader('Content-Length'))
+					piece_MD5 = response.getheader('Content-MD5')
+					piece_data = response.read()
+					#print(len(piece_data))
+					piece = lib.slicer.data_piece(self.slicer.file_path, piece_id, piece_size, piece_data, piece_MD5)
+
 					self.slicer.merge(piece)
 					logging.debug('merged ' + str(self.slicer.processed_piece))
 					self.time1 = int(time.time())
@@ -113,6 +116,8 @@ class dispatcher(object):
 					#print(piece_id, end=' ')
 				except Exception as e:
 					logging.debug(e)
+					print(response.getheaders())
+					print(response.read())
 
 			except http.client.BadStatusLine:
 				pass
