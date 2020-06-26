@@ -13,20 +13,24 @@ class secuUrl:
 			self.split(url)
 		else:
 			#new url
-			self.github_url = url
-			self.url_path = '/github/' + way + '/' + self.github_url[self.github_url.find('github.com') + 10:].strip('\n').strip('/')
+			self.url = url
+			if self.url.find('github.com') != -1:
+				self.url_path = '/github/' + way + '/' + self.url[self.url.find('github.com') + 10:].strip('\n').strip('/')
+			else:
+				self.url_path = '/github/' + way + '/' + self.url.strip('\n').strip('/')
 			self.repo_name = self.url_path[self.url_path.rfind('/') + 1:]
 			self.user = user
 			self.salt = salt
 
 	def get_key(self):
-		try:
-			with open('resources/key', 'r') as keyFile:
-				keyJson = json.load(keyFile)
-				self.key = keyJson[self.user]
-		except KeyError:
-			logging.error('User not found')
-			return 1
+		if self.key == None:
+			try:
+				with open('resources/key', 'r') as keyFile:
+					keyJson = json.load(keyFile)
+					self.key = keyJson[self.user]
+			except KeyError:
+				logging.error('User not found')
+				return 1
 
 	def sign_url(self):
 		hash_string = '{}{}{}'.format(self.salt, self.url_path, self.key)

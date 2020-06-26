@@ -7,22 +7,52 @@ from multiprocessing import Process,Value
 from lib.security import secuUrl
 import lib.dispatcher
 
+'''
+status : cloning, cloned, done, error, failed
+'''
+
 #repo_path = '/root/github_proxy/repo/'
 repo_path ='repo/'
 
+stable_state = ['cloned', 'done']
+
+def read_status(repo_name):
+	status = None
+	if os.path.isfile('logs/gits_server.json'):
+		with open('logs/gits_server.json', 'r') as logFile:
+			logJson = json.load(logFile)
+			if repo_name in logJson:
+				status = logJson[repo_name]['status']
+
+	dir_exist = os.path.exists(os.path.join(repo_path, repo_name))
+	tar_exist = os.path.isfile(os.path.join(repo_path, repo_name + '.tar.gz'))
+	if status in stable_state:
+		if dir_exist or not tar_exist:
+			status = 'error'
+	else:
+		if status == 'failed':
+			status = 'cloned'
+		elif tar_exist:
+			status = 'error'
+		elif status == 'cloning':
+			if not dir_exist:
+				status = 'error'
+	return status
+
+
 def write_status(repo_name, status):
 	logJson = {}
-	if not os.path.isfile('log/gits_server.json'):
-		with open('log/gits_server.json', 'w') as logFile:
+	if not os.path.isfile('logs/gits_server.json'):
+		with open('logs/gits_server.json', 'w') as logFile:
 			json.dump(logJson, logFile)
-	with open('log/gits_server.json', 'r') as logFile:
+	with open('logs/gits_server.json', 'r') as logFile:
 		logJson = json.load(logFile)
 	if repo_name in logJson:
 		logJson[repo_name]['status'] = status
 	else:
 		logJson[repo_name] = {}
 		logJson[repo_name]['status'] = status
-	with open('log/gits_server.json', 'w') as logFile:
+	with open('logs/gits_server.json', 'w') as logFile:
 		json.dump(logJson, logFile)
 
 def send_response(sock, return_code, return_message, additional_info = None, body = None):
@@ -45,22 +75,25 @@ def send_response(sock, return_code, return_message, additional_info = None, bod
 	sock.send(response.encode())
 
 def clone_job(sock, method, url_info):
+	status = read_status(url_info.repo_name)
 
 	if (method == 'POST'):
-		if os.path.exists(os.path.join(repo_path, url_info.repo_name)):
+		if status == 'cloning' or status in stable_state:
 			send_response(sock, 200, 'ok')
-			os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
+			#os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
 		else:
 			os.mkdir(os.path.join(repo_path, url_info.repo_name))
 			os.system('cd {} && git init --bare && git remote add origin {}'.format(os.path.join(repo_path, url_info.repo_name), url_info.github_url))
 			send_response(sock, 200, 'ok')
+			write_status(url_info.repo_name, 'cloning')
 			logging.info('clone: start cloning {}', url_info.github_url)
 			os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
+			write_status(url_info.repo_name, 'cloned')
 	elif (method == 'GET'):
-		if os.path.exists(os.path.join(repo_path, url_info.repo_name)):
+		if status == 'cloning':
 			logging.debug('clone: request is ongoing')
 			send_response(sock, 400, 'Bad Request')
-		elif os.path.isfile(os.path.join(repo_path, url_info.repo_name + '.tar.gz')):
+		elif status == 'cloned' or status == 'done':
 			logging.debug('clone: request done')
 			send_response(sock, 200, 'ok')
 		else:
@@ -80,10 +113,13 @@ def repo_job(sock, method, url_info):
 			info['File-MD5'] = sender.file_MD5
 			info['Filesize'] = sender.slicer.file_size
 			send_response(sock, 200, 'ok', info)
+			sock.settimeout(5)
 			if sender.send():
 				write_status(url_info.repo_name, 'failed')
+				logging.error('send back job failed: ' + url_info.repo_name)
 			else:
 				write_status(url_info.repo_name, 'done')
+				logging.info('send back job done: ' + url_info.repo_name)
 	elif (method == 'DELETE'):
 		if os.path.isfile(os.path.join(repo_path, url_info.repo_name + '.tar.gz')):
 			#os.system('rm' + os.path.join(repo_path, url_info.repo_name + '.tar.gz'))

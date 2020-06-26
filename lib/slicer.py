@@ -26,12 +26,14 @@ class slicer(object):
 			cmd_result = os.popen('md5sum ' + self.file_path)
 			self.md5sum = cmd_result.readline().split()[0]
 			self.file_size = os.path.getsize(file_path)
-			self.file_counts = int(self.file_size / PIECE_SIZE)
+			self.piece_counts = int(self.file_size / PIECE_SIZE)
 			self.split()
 		else:
 			self.file_valid = False
 			self.file_size = int(file_size)
-			self.file_counts = int(self.file_size / PIECE_SIZE)
+			self.piece_counts = int(self.file_size / PIECE_SIZE)
+		
+		logging.debug('piece counts ' + str(self.piece_counts))
 
 		self.target_MD5 = None
 		if file_md5 != None:
@@ -88,7 +90,7 @@ class slicer(object):
 				read_size = PIECE_SIZE
 				while (len(self.file_parts) < CACHED_COUNTS and self.processed_size < self.file_size):
 
-					if self.processed_piece < self.file_counts - 1:
+					if self.processed_piece < self.piece_counts - 1:
 						read_size = PIECE_SIZE
 					else:
 						read_size = self.file_size - self.processed_size
@@ -130,14 +132,13 @@ class slicer(object):
 
 	def get_missed_parts(self):
 		self.missed_parts = []
-		keys = list(self.file_parts.keys())
-		if (len(keys) > 0):
-			keys.sort()
-			for i in range(self.processed_piece, keys[-1]):
-				if not i in self.file_parts:
+		end_id = self.processed_piece + MAX_CONNECTION
+		if end_id > self.piece_counts:
+			end_id = self.piece_counts - 1
+		if (self.processed_piece < end_id):
+			for i in range(self.processed_piece, end_id):
+				if not i in self.data_recv:
 					self.missed_parts.append(i)
-		if len(keys) > 0 and keys[-1] < self.file_counts - 1:
-			self.missed_parts.append(keys[-1] + 1)
 		return self.missed_parts
 
 

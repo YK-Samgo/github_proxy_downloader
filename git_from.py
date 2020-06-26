@@ -107,16 +107,20 @@ def getGit():
 		response = httpClient.getresponse()
 		result = response.status
 
-		filename = response.getheader('Filename')
-		file_size = int(response.getheader('Filesize'))
-		file_MD5 = response.getheader('File-MD5')
+		if result == 200:
+			filename = response.getheader('Filename')
+			file_size = int(response.getheader('Filesize'))
+			file_MD5 = response.getheader('File-MD5')
+			body = response.read()
+	
+			receiver = lib.dispatcher.dispatcher(httpClient, filename, file_size, file_MD5)
+			logging.debug('Filename: {}, file size: {}, file md5: {}'.format(filename, file_size, file_MD5))
+			receiver.receive()
+			result = 'done'
+		else:
+			result = 'failed'
 
-		receiver = lib.dispatcher.dispatcher(httpClient, filename, file_size, file_MD5)
-		logging.debug('Filename: {}, file size: {}, file md5: {}'.format(filename, file_size, file_MD5))
-		receiver.receive()
-		result = 'done'
-
-	except Exception as e:
+	except ValueError as e:
 		logging.error(e)
 		result = 'failed'
 	finally:
@@ -125,12 +129,10 @@ def getGit():
 
 	return result
 
-def main():
+def judge_act():
 	url_path = github_url[github_url.find('github.com') + 10:].strip('\n')
 	repo_name = github_url[github_url.rfind('/') + 1:]
 
-	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-	logging.basicConfig(filename='logs/github_proxy_client.log', level=logging.DEBUG, format=LOG_FORMAT)
 
 	#gitMd5 = hashlib.md5(url_path).hexdigest()
 	if os.path.isfile('logs/gits_client.json'):
@@ -139,14 +141,25 @@ def main():
 			gits = json.load(gitsJson)
 		if repo_name in gits:
 			if gits[repo_name]['status'] == 'done':
-				logging.info('already get back ' + github_url)
+				print('already get back ' + github_url)
+				act = input('job already finished, redo? Warning: redo may overwritten the local file (Y/n):')
+				if (act == 'y' or act == 'Y'):
+					logging.info('redo job ' + github_url)
+					write_status(repo_name, 'redoing')
+					judge_act()
 
 			elif gits[repo_name]['status'] == 'lost':
-				act = input('lost on the server, clone the repo again? (Y/n):')
-				if (act == 'y' or act == 'Y'):
-					logging.info('restart job ' + github_url)
-					result = postJob()
+				logging.info('may lost on the server, regain status')
+				result = jobStatus()
+				if result == 'lost':
+					act = input('lost on the server, clone the repo again? (Y/n):')
+					if (act == 'y' or act == 'Y'):
+						logging.info('restart job ' + github_url)
+						result = postJob()
+						write_status(repo_name, result)
+				else:
 					write_status(repo_name, result)
+					judge_act()
 
 			elif gits[repo_name]['status'] == 'failed':
 				act = input('failed last copy, continue? (Y/n):')
@@ -163,13 +176,19 @@ def main():
 				if result == 'cloned':
 					act = input('Cloned on server, get back? (Y/n):')
 					if (act == 'y' or act == 'Y'):
-						logging.info('get back ' + github_url)
-						result = getGit()
-						write_status(repo_name, result)
-			else:
+						judge_act()
+
+			elif gits[repo_name]['status'] == 'cloned':
 				logging.info('get back ' + github_url)
 				result = getGit()
 				write_status(repo_name, result)
+
+			elif gits[repo_name]['status'] == 'redoing':
+				result = jobStatus()
+				logging.info('status updated: ' + result)
+				write_status(repo_name, result)
+				if result == 'cloned':
+					judge_act()
 		else:
 			logging.info('new job ' + github_url)
 			result = postJob()
@@ -181,5 +200,10 @@ def main():
 			gits['description'] = 'client log for jobs'
 			json.dump(gits, gitsJsonFile)
 		postJob()
+
+def main():
+	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+	logging.basicConfig(filename='logs/github_proxy_client.log', level=logging.DEBUG, format=LOG_FORMAT)
+	judge_act()
 
 main()
