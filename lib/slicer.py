@@ -30,7 +30,7 @@ class slicer(object):
 			self.split()
 		else:
 			self.file_valid = False
-			self.file_size = file_size
+			self.file_size = int(file_size)
 			self.file_counts = int(self.file_size / PIECE_SIZE)
 
 		self.target_MD5 = None
@@ -136,7 +136,7 @@ class slicer(object):
 			for i in range(self.processed_piece, keys[-1]):
 				if not i in self.file_parts:
 					self.missed_parts.append(i)
-		if (keys[-1] < self.file_counts - 1):
+		if len(keys) > 0 and keys[-1] < self.file_counts - 1:
 			self.missed_parts.append(keys[-1] + 1)
 		return self.missed_parts
 

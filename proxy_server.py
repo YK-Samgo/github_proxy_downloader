@@ -7,8 +7,14 @@ from multiprocessing import Process,Value
 from lib.security import secuUrl
 import lib.dispatcher
 
+#repo_path = '/root/github_proxy/repo/'
+repo_path ='repo/'
+
 def write_status(repo_name, status):
 	logJson = {}
+	if not os.path.isfile('log/gits_server.json'):
+		with open('log/gits_server.json', 'w') as logFile:
+			json.dump(logJson, logFile)
 	with open('log/gits_server.json', 'r') as logFile:
 		logJson = json.load(logFile)
 	if repo_name in logJson:
@@ -24,7 +30,7 @@ def send_response(sock, return_code, return_message, additional_info = None, bod
 
 	header = '\r\n'
 	if additional_info != None:
-		for key, value in additional_info.getitems():
+		for key, value in additional_info.items():
 			header = '{}: {}\r\n{}'.format(key, value, header)
 	
 	if body == None:
@@ -34,12 +40,11 @@ def send_response(sock, return_code, return_message, additional_info = None, bod
 		header = 'Content-Length: {}\r\n{}'.format(len(body), header)
 
 	response = headline + header + body
+	logging.debug('send response:\n' + response)
 
 	sock.send(response.encode())
 
 def clone_job(sock, method, url_info):
-	#repo_path = '/root/github_proxy/repo/'
-	repo_path ='repo/'
 
 	if (method == 'POST'):
 		if os.path.exists(os.path.join(repo_path, url_info.repo_name)):
@@ -63,11 +68,11 @@ def clone_job(sock, method, url_info):
 			send_response(sock, 404, 'Not Found')
 
 def repo_job(sock, method, url_info):
-	repo_path = '/root/github_proxy/repo/'
 	file_path = os.path.join(repo_path, url_info.repo_name + '.tar.gz')
 
 	if (method == 'GET'):
 		if os.path.isfile(file_path):
+			logging.info('send back: ' + url_info.repo_name + '.tar.gz')
 			sender = lib.dispatcher.dispatcher(sock, file_path)
 			info = {}
 			info['Content-Disposition'] = file_path
@@ -75,7 +80,10 @@ def repo_job(sock, method, url_info):
 			info['File-MD5'] = sender.file_MD5
 			info['Filesize'] = sender.slicer.file_size
 			send_response(sock, 200, 'ok', info)
-			sender.send()
+			if sender.send():
+				write_status(url_info.repo_name, 'failed')
+			else:
+				write_status(url_info.repo_name, 'done')
 	elif (method == 'DELETE'):
 		if os.path.isfile(os.path.join(repo_path, url_info.repo_name + '.tar.gz')):
 			#os.system('rm' + os.path.join(repo_path, url_info.repo_name + '.tar.gz'))

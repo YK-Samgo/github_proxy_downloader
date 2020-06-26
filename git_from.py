@@ -44,7 +44,7 @@ def postJob():
 		
 		# response是HTTPResponse对象
 		response = httpClient.getresponse()
-		result = response.read().decode("utf-8")
+		result = response.status
 		logging.debug("get response: " + result)
 
 	except Exception as e:
@@ -63,6 +63,7 @@ def jobStatus():
 	url_info = secuUrl(github_url, user, salt, 'clone')
 
 	myurl = url_info.form_url()
+	logging.debug("GET status url: " + myurl)
 
 	httpClient = None
 	result = None
@@ -81,7 +82,7 @@ def jobStatus():
 			httpClient.close()
 
 	if result == 200:
-		return 'cloning'
+		return 'cloned'
 	elif result == 400:
 		return 'cloning'
 	elif result == 404:
@@ -94,6 +95,7 @@ def getGit():
 	salt = str(random.randint(32768, 65536))
 	url_info = secuUrl(github_url, user, salt, 'repo')
 	myurl = url_info.form_url()
+	logging.debug("GET url: " + myurl)
 
 	httpClient = None
 	result = None
@@ -106,20 +108,22 @@ def getGit():
 		result = response.status
 
 		filename = response.getheader('Filename')
-		file_size = response.getheader('Filesize')
+		file_size = int(response.getheader('Filesize'))
 		file_MD5 = response.getheader('File-MD5')
 
-		receiver = lib.dispatcher.dispatcher(httpClient, Filename, file_size, file_MD5)
+		receiver = lib.dispatcher.dispatcher(httpClient, filename, file_size, file_MD5)
+		logging.debug('Filename: {}, file size: {}, file md5: {}'.format(filename, file_size, file_MD5))
 		receiver.receive()
+		result = 'done'
 
 	except Exception as e:
 		logging.error(e)
+		result = 'failed'
 	finally:
 		if httpClient:
 			httpClient.close()
 
-
-	pass
+	return result
 
 def main():
 	url_path = github_url[github_url.find('github.com') + 10:].strip('\n')
@@ -136,22 +140,32 @@ def main():
 		if repo_name in gits:
 			if gits[repo_name]['status'] == 'done':
 				logging.info('already get back ' + github_url)
+
 			elif gits[repo_name]['status'] == 'lost':
 				act = input('lost on the server, clone the repo again? (Y/n):')
 				if (act == 'y' or act == 'Y'):
 					logging.info('restart job ' + github_url)
 					result = postJob()
 					write_status(repo_name, result)
+
 			elif gits[repo_name]['status'] == 'failed':
 				act = input('failed last copy, continue? (Y/n):')
 				if (act == 'y' or act == 'Y'):
 					logging.info('continue job ' + github_url)
-					result = postJob()
+					result = getGit()
 					write_status(repo_name, result)
+
 			elif gits[repo_name]['status'] == 'cloning':
 				logging.info('update status ' + github_url)
 				result = jobStatus()
+				logging.info('status updated: ' + result)
 				write_status(repo_name, result)
+				if result == 'cloned':
+					act = input('Cloned on server, get back? (Y/n):')
+					if (act == 'y' or act == 'Y'):
+						logging.info('get back ' + github_url)
+						result = getGit()
+						write_status(repo_name, result)
 			else:
 				logging.info('get back ' + github_url)
 				result = getGit()

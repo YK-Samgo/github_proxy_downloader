@@ -2,7 +2,7 @@
 
 import logging, threading, queue, http.client, socket
 
-import lib.slicer, lib.global_var, lib.secuUrl
+import lib.slicer, lib.global_var, lib.security
 
 PIECE_SIZE = lib.global_var.DEFAULT_PIECE_SIZE
 MAX_CONNECTION = lib.global_var.DEFAULT_MAX_CONNECTION
@@ -13,6 +13,7 @@ class dispatcher(object):
 	resend_queue = []
 	resent_queue = []
 	processed_piece = 0
+	retry = 0
 	"""docstring for dispatcher"""
 	def __init__(self, tunnel, file_path, file_size = None, file_MD5 = None):
 		self.tunnel = tunnel
@@ -21,7 +22,7 @@ class dispatcher(object):
 			self.slicer = lib.slicer.slicer(self.file_path)
 			self.file_MD5 = self.slicer.md5sum
 		else:
-			self.slicer = lib.slicer.slicer(self.file_path, file_size, file_MD5)
+			self.slicer = lib.slicer.slicer(self.file_path, int(file_size), file_MD5)
 			self.file_MD5 = file_MD5
 		
 	def send(self):
@@ -38,12 +39,13 @@ class dispatcher(object):
 					self.data_queue.append(send_piece.id)
 			try:
 				recvData = self.tunnel.recv(102400).decode()
+				self.retry = 0
 				while len(recvData) > 2:
 					msg = confirmMessage(recvData[:recvData.find('GET',3)])
 					recvData = recvData[recvData.find('GET',3):]
 					if msg.status == 'done':
 						self.remove_done(msg.packet_id)
-						print(msg.packet_id, end=' ')
+						#print(msg.packet_id, end=' ')
 						self.processed_piece += 1
 					elif msg.status == 'lost':
 						self.remove_done(msg.packet_id)
@@ -57,8 +59,15 @@ class dispatcher(object):
 					pass
 			except socket.timeout:
 				#resend all
+				logging.error('retry {}'.format(self.retry))
 				self.resend_queue.extend(self.data_queue)
 				self.data_queue.clear()
+				self.retry += 1
+				if self.retry == 3:
+					logging.error('retry timeout! abort')
+					return 1
+
+		return 0
 
 	def remove_done(self, piece_id):
 		try:
@@ -82,6 +91,7 @@ class dispatcher(object):
 		self.tunnel.send(headers + piece.data)
 
 	def receive(self):
+		logging.debug("start receive: " + self.file_path)
 		while not self.slicer.file_done:
 			try:
 				response = self.tunnel.getresponse()
@@ -95,11 +105,10 @@ class dispatcher(object):
 				url = ""
 				try:
 					self.slicer.merge(piece)
-					print(piece_id, end=' ')
-					url = '/confirm/{}'.format(piece_id)
+					#print(piece_id, end=' ')
 					self.execute_queue(True, piece_id)
-					self.tunnel.request('GET', url)
 				except Exception as e:
+					logging.debug(e)
 					if e[0] == 'PIECE BROKE':
 						self.execute_queue(False, e[1])
 	
@@ -112,23 +121,27 @@ class dispatcher(object):
 					self.execute_queue(False, ids)
 
 	def execute_queue(self, if_done, piece_id):
+		url = ''
 		if if_done:
 			if piece_id in self.resend_queue:
 				self.resend_queue.remove(piece_id)
+				url = '/confirm/{}'.format(piece_id)
 		else:
-			try:
-				if not piece_id in self.resend_queue:
-					self.resend_queue.append(piece_id)
-					url = '/lost/{}'.format(piece_id)
-					self.tunnel.request('GET', url)
-				elif piece_id in self.resent_queue:
-					url = '/lost/{}'.format(piece_id)
-					self.tunnel.request('GET', url)
-					self.resent_queue.remove(piece_id)
-				else:
-					self.resent_queue.append(piece_id)
-			except http.client.CannotSendRequest:
-				pass
+			if not piece_id in self.resend_queue:
+				self.resend_queue.append(piece_id)
+				url = '/lost/{}'.format(piece_id)
+			elif piece_id in self.resent_queue:
+				url = '/lost/{}'.format(piece_id)
+				self.resent_queue.remove(piece_id)
+			else:
+				self.resent_queue.append(piece_id)
+
+		try:
+			if url != '':
+				print(url)
+				self.tunnel.request('GET', url)
+		except http.client.CannotSendRequest:
+			pass
 
 
 class confirmMessage:
@@ -149,6 +162,9 @@ class confirmMessage:
 			elif self.url_parts[-2] == 'confirm':
 				self.packet_id = int(self.url_parts[-1])
 				self.status = 'done'
+			elif self.url_parts[-2] == 'get':
+				self.packet_id = int(self.url_parts[-1])
+				self.status = 'sending'
 			else:
 				self.status = 'error'
 				
