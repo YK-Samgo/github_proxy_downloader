@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-DEFAULT_PIECE_SIZE = 4096 * 32
+DEFAULT_PIECE_SIZE = 4096 * 8
 
 DEFAULT_MAX_CONNECTION = 1
 

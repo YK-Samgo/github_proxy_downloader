@@ -127,7 +127,7 @@ class dispatcher(object):
 		self.tunnel.getresponse()
 
 	def print_process(self):
-		print('\rprocessed: {}KB/{}KB ({}/{}) {} KB/s'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(self.time1 - self.time0)/1024)), end='', flush=True)
+		print('\rprocessed: {}KB/{}KB ({}/{}) {} KB/s '.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(self.time1 - self.time0)/1024)), end='', flush=True)
 		self.time0 = self.time1
 		self.processed_size_last_time = self.slicer.processed_size
 

@@ -14,8 +14,8 @@ import lib.dispatcher
 user = 'yk'
 #host = 'github.smyk323.gq'
 #host = 'localhost'
-#host = 'www.cmjk123.tk'
-host = 'www.acceforyk.cn'
+host = 'www.cmjk123.tk'
+#host = 'www.acceforyk.cn'
 host_port = 12497
 github_url = sys.argv[1]
 
@@ -67,7 +67,7 @@ def postJob():
 		# response是HTTPResponse对象
 		response = httpClient.getresponse()
 		result = response.status
-		logging.debug("get response: " + result)
+		logging.debug("get response: {}".format(result))
 
 	except Exception as e:
 		logging.error(e)

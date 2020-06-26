@@ -104,7 +104,8 @@ def clone_job(sock, method, url_info):
 			send_response(sock, 200, 'ok')
 			write_status(url_info.repo_name, 'cloning')
 			logging.info('clone: start cloning ' + url_info.github_url)
-			os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
+			os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name, url_info.repo_name, url_info.repo_name))
+			logging.info('cloned ' + url_info.github_url)
 			write_status(url_info.repo_name, 'cloned')
 	elif (method == 'GET'):
 		if status == 'cloning':
