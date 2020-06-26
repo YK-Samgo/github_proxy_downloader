@@ -14,13 +14,15 @@ class dispatcher(object):
 	resent_queue = []
 	processed_piece = 0
 	"""docstring for dispatcher"""
-	def __init__(self, tunnel, file_path, file_size = None, file_md5 = None):
+	def __init__(self, tunnel, file_path, file_size = None, file_MD5 = None):
 		self.tunnel = tunnel
 		self.file_path = file_path
 		if file_size == None:
 			self.slicer = lib.slicer.slicer(self.file_path)
+			self.file_MD5 = self.slicer.md5sum
 		else:
-			self.slicer = lib.slicer.slicer(self.file_path, file_size, file_md5)
+			self.slicer = lib.slicer.slicer(self.file_path, file_size, file_MD5)
+			self.file_MD5 = file_MD5
 		
 	def send(self):
 		self.tunnel.settimeout(5)

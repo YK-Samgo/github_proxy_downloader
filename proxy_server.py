@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import os, socket, json, logging, threading
+import os, socket, json, logging, threading, hashlib
 
 from multiprocessing import Process,Value
 
 from lib.security import secuUrl
+import lib.dispatcher
 
 def write_status(repo_name, status):
 	logJson = {}
@@ -18,19 +19,19 @@ def write_status(repo_name, status):
 	with open('log/gits_server.json', 'w') as logFile:
 		json.dump(logJson, logFile)
 
-def send_response(sock, return_code, return_message, body = None, additional_info = None):
+def send_response(sock, return_code, return_message, additional_info = None, body = None):
 	headline = 'HTTP/1.1 {} {}\r\n'.format(return_code, return_message)
 
 	header = '\r\n'
 	if additional_info != None:
-		if additional_info['Content-Type'] == 'application/x-tar':
-			for key, value in additional_info.getitems():
-				header = '{}: {}\r\n{}'.format(key, value, header)
-			header = 'Content-Length: {}\r\n{}'.format(os.path.getsize(additional_info['Content-Disposition']), header)
-	else:
+		for key, value in additional_info.getitems():
+			header = '{}: {}\r\n{}'.format(key, value, header)
+	
+	if body == None:
 		header = 'Content-Type: text/html\r\n' + header
 		#body = str(return_code)
 		body = '<html>\n<head><title>{} {}</title></head>\n<body bgcolor="white">\n<center><h1>{} {}</h1></center>\n<hr><center>nginx/1.10.3</center>\n</body>\n</html>'.format(return_code, return_message, return_code, return_message)
+		header = 'Content-Length: {}\r\n{}'.format(len(body), header)
 
 	response = headline + header + body
 
@@ -63,10 +64,18 @@ def clone_job(sock, method, url_info):
 
 def repo_job(sock, method, url_info):
 	repo_path = '/root/github_proxy/repo/'
+	file_path = os.path.join(repo_path, url_info.repo_name + '.tar.gz')
 
 	if (method == 'GET'):
-		if os.path.isfile(os.path.join(repo_path, url_info.repo_name + '.tar.gz')):
-			send_response(sock, 200, 'ok')
+		if os.path.isfile(file_path):
+			sender = lib.dispatcher.dispatcher(sock, file_path)
+			info = {}
+			info['Content-Disposition'] = file_path
+			info['Filename'] = url_info.repo_name + '.tar.gz'
+			info['File-MD5'] = sender.file_MD5
+			info['Filesize'] = sender.slicer.file_size
+			send_response(sock, 200, 'ok', info)
+			sender.send()
 	elif (method == 'DELETE'):
 		if os.path.isfile(os.path.join(repo_path, url_info.repo_name + '.tar.gz')):
 			#os.system('rm' + os.path.join(repo_path, url_info.repo_name + '.tar.gz'))

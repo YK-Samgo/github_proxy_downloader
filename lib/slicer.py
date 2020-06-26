@@ -10,7 +10,7 @@ CACHED_COUNTS = lib.global_var.CACHED_COUNTS
 
 
 class slicer(object):
-	cached = False
+	cached = True
 	data_recv = []
 	"""docstring for slicer"""
 	def __init__(self, file_path, file_size = None, file_md5 = None):

@@ -93,6 +93,32 @@ def jobStatus():
 def getGit():
 	salt = str(random.randint(32768, 65536))
 	url_info = secuUrl(github_url, user, salt, 'repo')
+	myurl = url_info.form_url()
+
+	httpClient = None
+	result = None
+	try:
+		httpClient = http.client.HTTPConnection(host, host_port)
+		httpClient.request('GET', myurl)
+		
+		# response是HTTPResponse对象
+		response = httpClient.getresponse()
+		result = response.status
+
+		filename = response.getheader('Filename')
+		file_size = response.getheader('Filesize')
+		file_MD5 = response.getheader('File-MD5')
+
+		receiver = lib.dispatcher.dispatcher(httpClient, Filename, file_size, file_MD5)
+		receiver.receive()
+
+	except Exception as e:
+		logging.error(e)
+	finally:
+		if httpClient:
+			httpClient.close()
+
+
 	pass
 
 def main():
