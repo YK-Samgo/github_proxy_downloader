@@ -88,7 +88,7 @@ class dispatcher(object):
 	def receive(self):
 		logging.debug("start receive: " + self.file_path)
 		print("start receive: " + self.file_path)
-		time0 = time.time()
+		self.time0 = time.time()
 		self.processed_size_last_time = 0
 		while not self.slicer.file_done:
 			try:
@@ -107,25 +107,29 @@ class dispatcher(object):
 				try:
 					self.slicer.merge(piece)
 					logging.debug('merged ' + str(self.slicer.processed_piece))
-					time1 = int(time.time())
-					if time1 > time0:
-						print('processed: {}KB/{}KB ({}/{}) {} KB/s'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(time1 -time0))), end='', flush=True)
-						time0 = time1
-						self.processed_size_last_time = self.slicer.processed_size
+					self.time1 = int(time.time())
+					if self.time1 > self.time0:
+						self.print_process()
 					#print(piece_id, end=' ')
 				except Exception as e:
 					logging.debug(e)
 
 			except http.client.BadStatusLine:
 				pass
-		time1 = time.time()
-		print('\nprocessed: {}KB/{}KB ({}/{}) {} KB/s\n'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(time1 -time0))), flush=True)
+		self.time1 = time.time()
+		self.print_process()
+		print('\n')
 		salt = str(random.randint(32768, 65536))
 		url_info = lib.security.secuUrl('/confirm/{}'.format(self.slicer.piece_counts), user, salt, 'repo')
 		url_info.form_url()
 		logging.debug('request: ' + url_info.complete_url)
 		self.tunnel.request('GET', url_info.complete_url)
 		self.tunnel.getresponse()
+
+	def print_process(self):
+		print('\rprocessed: {}KB/{}KB ({}/{}) {} KB/s'.format(int(self.slicer.processed_size / 1024), int(self.slicer.file_size / 1024), self.slicer.processed_piece, self.slicer.piece_counts, int((self.slicer.processed_size - self.processed_size_last_time)/(self.time1 - self.time0)/1024)), end='', flush=True)
+		self.time0 = self.time1
+		self.processed_size_last_time = self.slicer.processed_size
 
 	def execute_queue(self, id):
 		try:
