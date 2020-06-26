@@ -1,4 +1,6 @@
+.gitignore
 repo/
 logs/
 debug/
 lib/__pycache__/
+*.tar.gz
