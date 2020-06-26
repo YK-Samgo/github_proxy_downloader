@@ -27,6 +27,8 @@ if not os.path.isfile(json_path):
 	with open(json_path, 'w') as fp:
 		json.dump(logJson, fp)
 
+servicePort = 15504
+
 stable_state = ['cloned', 'done']
 
 def read_status(repo_name):
@@ -173,7 +175,6 @@ def handle_client(sock, addr, running):
 	sock.close()
 
 def main():
-	servicePort = 10652
 	running = Value('i', 1)
 
 	LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"

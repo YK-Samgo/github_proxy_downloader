@@ -13,12 +13,15 @@ import lib.dispatcher
 
 user = 'yk'
 #host = 'github.smyk323.gq'
-host = 'localhost'
-host_port = 10652
+#host = 'localhost'
+#host = 'www.cmjk123.tk'
+host = 'www.acceforyk.cn'
+host_port = 15504
 github_url = sys.argv[1]
 
 auto_start = None
 act = 'n'
+retry = 0
 
 abspath = os.path.abspath('.')
 #repo_path = '/root/github_proxy/repo/'
@@ -149,7 +152,7 @@ def getGit():
 	return result
 
 def judge_act():
-	global act
+	global act, retry
 	url_path = github_url[github_url.find('github.com') + 10:].strip('\n')
 	repo_name = github_url[github_url.rfind('/') + 1:]
 
@@ -210,6 +213,16 @@ def judge_act():
 			write_status(repo_name, result)
 			if result == 'cloned':
 				judge_act()
+
+		elif gits[repo_name]['status'] == 'error':
+			result = jobStatus()
+			logging.info('status updated: ' + result)
+			write_status(repo_name, result)
+			retry += 1
+			if retry < 3:
+				judge_act()
+			else:
+				logging.error('Failed connecting to the server after tried 3 times')
 
 	else:
 		logging.info('new job ' + github_url)
