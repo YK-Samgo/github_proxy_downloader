@@ -16,7 +16,7 @@ user = 'yk'
 #host = 'localhost'
 #host = 'www.cmjk123.tk'
 host = 'www.acceforyk.cn'
-host_port = 15504
+host_port = 12497
 github_url = sys.argv[1]
 
 auto_start = None

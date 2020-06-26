@@ -11,6 +11,10 @@ import lib.dispatcher
 status : cloning, cloned, done, error, failed
 '''
 
+#host = 'localhost'
+host = '0.0.0.0'
+servicePort = 12497
+
 abspath = os.path.abspath('.')
 #repo_path = '/root/github_proxy/repo/'
 repo_path = os.path.join(abspath, 'repo/')
@@ -27,7 +31,6 @@ if not os.path.isfile(json_path):
 	with open(json_path, 'w') as fp:
 		json.dump(logJson, fp)
 
-servicePort = 15504
 
 stable_state = ['cloned', 'done']
 
@@ -96,11 +99,11 @@ def clone_job(sock, method, url_info):
 			send_response(sock, 200, 'ok')
 			#os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
 		else:
-			os.mkdir(os.path.join(repo_path, url_info.repo_name))
+			os.makedirs(os.path.join(repo_path, url_info.repo_name))
 			os.system('cd {} && git init --bare && git remote add origin {}'.format(os.path.join(repo_path, url_info.repo_name), url_info.github_url))
 			send_response(sock, 200, 'ok')
 			write_status(url_info.repo_name, 'cloning')
-			logging.info('clone: start cloning {}', url_info.github_url)
+			logging.info('clone: start cloning ' + url_info.github_url)
 			os.system('cd {}{} && git fetch && cd .. && tar -czf {}.tar.gz {} && rm -rf {}'.format(repo_path, url_info.repo_name, url_info.repo_name.split('.')[0], url_info.repo_name, url_info.repo_name))
 			write_status(url_info.repo_name, 'cloned')
 	elif (method == 'GET'):
@@ -182,7 +185,7 @@ def main():
 
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-	server.bind(('localhost', servicePort))
+	server.bind((host, servicePort))
 	server.listen()
 
 	logging.info('start listenning on {}'.format(servicePort))
